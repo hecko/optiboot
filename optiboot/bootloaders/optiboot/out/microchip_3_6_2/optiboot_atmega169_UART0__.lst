@@ -1,0 +1,630 @@
+
+optiboot_atmega169_UART0__.elf:     file format elf32-avr
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .text         000001d6  00003e00  00003e00  00000074  2**0
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  1 .trampolines  00000000  00003fd6  00003fd6  0000024a  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  2 .version      00000002  00003ffe  00003ffe  0000024a  2**0
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  3 .comment      00000030  00000000  00000000  0000024c  2**0
+                  CONTENTS, READONLY
+  4 .debug_aranges 00000030  00000000  00000000  0000027c  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  5 .debug_info   00000638  00000000  00000000  000002ac  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  6 .debug_abbrev 000002e6  00000000  00000000  000008e4  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  7 .debug_line   00000344  00000000  00000000  00000bca  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  8 .debug_frame  000000ac  00000000  00000000  00000f10  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  9 .debug_str    00000208  00000000  00000000  00000fbc  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 10 .debug_loc    00000359  00000000  00000000  000011c4  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 11 .debug_ranges 00000068  00000000  00000000  0000151d  2**0
+                  CONTENTS, READONLY, DEBUGGING
+
+Disassembly of section .text:
+
+00003e00 <pre_main>:
+/* everything that needs to run VERY early */
+void pre_main(void) {
+  // Allow convenient way of calling do_spm function - jump table, so
+  //   entry to this function will always be here, independent of
+  //   compilation, features etc
+  asm volatile (
+    3e00:	01 c0       	rjmp	.+2      	; 0x3e04 <main>
+    3e02:	d9 c0       	rjmp	.+434    	; 0x3fb6 <do_spm>
+
+00003e04 <main>:
+  //  SP points to RAMEND
+  //  r1 contains zero
+  //
+  // If not, uncomment the following instructions:
+  // cli();
+  asm volatile ("  clr __zero_reg__");
+    3e04:	11 24       	eor	r1, r1
+#  warning "START_APP_ON_EXTR is defined and NO_START_APP_ON_POR isn't"
+#  define APP_START_REASONS 1 /* Always start rge App. */
+#  define WDRF_CLR_REASONS 0  /* Never clear WDRF */
+#endif
+
+  ch = MCUSR;
+    3e06:	84 b7       	in	r24, 0x34	; 52
+
+  // Skip all logic and run bootloader if MCUSR is cleared (application request)
+  if (ch != 0) {
+    3e08:	88 23       	and	r24, r24
+    3e0a:	61 f0       	breq	.+24     	; 0x3e24 <main+0x20>
+     * One problematic scenario: broken application code sets watchdog timer
+     * without clearing MCUSR before and triggers it quickly. But it's
+     * recoverable by power-on with pushed reset button.
+     */
+
+    if (APP_START_REASONS) {
+    3e0c:	98 2f       	mov	r25, r24
+    3e0e:	9a 70       	andi	r25, 0x0A	; 10
+    3e10:	92 30       	cpi	r25, 0x02	; 2
+    3e12:	41 f0       	breq	.+16     	; 0x3e24 <main+0x20>
+      if (WDRF_CLR_REASONS) {
+    3e14:	81 ff       	sbrs	r24, 1
+    3e16:	02 c0       	rjmp	.+4      	; 0x3e1c <main+0x18>
+        /*
+         * Clear WDRF if it was most probably set by wdr in bootloader.
+         */
+        if ((uint16_t)&MCUSR > 0x1F) {
+          MCUSR = ~(_BV(WDRF));   // optimize to LDI/OUT
+    3e18:	97 ef       	ldi	r25, 0xF7	; 247
+    3e1a:	94 bf       	out	0x34, r25	; 52
+      /*
+       * save the reset flags in the designated register
+       * This can be saved in a main program by putting code in .init0 (which
+       * executes before normal c init code) to save R2 to a global variable.
+       */
+      __asm__ __volatile__ ("  mov r2, %0\n" :: "r" (ch));
+    3e1c:	28 2e       	mov	r2, r24
+
+      // switch off watchdog
+      watchdogConfig(WATCHDOG_OFF);
+    3e1e:	80 e0       	ldi	r24, 0x00	; 0
+    3e20:	b5 d0       	rcall	.+362    	; 0x3f8c <watchdogConfig>
+      // Note that appstart_vec is defined so that this works with either
+      // real or virtual boot partitions.
+      __asm__ __volatile__ (
+    3e22:	ee c0       	rjmp	.+476    	; 0x4000 <__VERSION_START__+0x2>
+#elif defined(__AVR_ATtiny25__)||defined(__AVR_ATtiny45__)||defined(__AVR_ATtiny85__)
+  TCCR1 = 0x0E; //div 8196 - it's an 8-bit timer.
+#elif defined(__AVR_ATtiny43__)
+#error "LED flash for Tiny43 not yet supported"
+#else
+  TCCR1B = _BV(CS12) | _BV(CS10); // div 1024
+    3e24:	85 e0       	ldi	r24, 0x05	; 5
+    3e26:	80 93 81 00 	sts	0x0081, r24	; 0x800081 <__RAM__+0x81>
+  LINBTR = (1 << LDISR) | (8 << LBT0); 
+  LINCR = _BV(LENA) | _BV(LCMD2) | _BV(LCMD1) | _BV(LCMD0);
+  LINDAT=0;
+#else
+#if (SINGLESPEED == 0)
+  UART_SRA = _BV(U2X0); //Double speed mode USART0
+    3e2a:	82 e0       	ldi	r24, 0x02	; 2
+    3e2c:	80 93 c0 00 	sts	0x00C0, r24	; 0x8000c0 <__RAM__+0xc0>
+#endif
+  UART_SRB = _BV(RXEN0) | _BV(TXEN0);
+    3e30:	88 e1       	ldi	r24, 0x18	; 24
+    3e32:	80 93 c1 00 	sts	0x00C1, r24	; 0x8000c1 <__RAM__+0xc1>
+  UART_SRC = _BV(UCSZ00) | _BV(UCSZ01);
+    3e36:	86 e0       	ldi	r24, 0x06	; 6
+    3e38:	80 93 c2 00 	sts	0x00C2, r24	; 0x8000c2 <__RAM__+0xc2>
+  UART_SRL = (uint8_t)BAUD_SETTING;
+    3e3c:	80 e1       	ldi	r24, 0x10	; 16
+    3e3e:	80 93 c4 00 	sts	0x00C4, r24	; 0x8000c4 <__RAM__+0xc4>
+  RS485_PORT &= ~_BV(RS485_BIT);
+  #endif
+#endif
+
+  // Set up watchdog to trigger after desired timeout
+  watchdogConfig(WDTPERIOD);
+    3e42:	8e e0       	ldi	r24, 0x0E	; 14
+    3e44:	a3 d0       	rcall	.+326    	; 0x3f8c <watchdogConfig>
+
+#if (LED_START_FLASHES > 0) || LED_DATA_FLASH || LED_START_ON
+  /* Set LED pin as output */
+  LED_DDR |= _BV(LED);
+    3e46:	25 9a       	sbi	0x04, 5	; 4
+    3e48:	84 e0       	ldi	r24, 0x04	; 4
+    TIFR = _BV(TOV1);
+    while (!(TIFR & _BV(TOV1)));
+#elif defined(__AVR_ATtiny43__)
+#error "LED flash for Tiny43 not yet supported"
+#else
+    TCNT1 = -(F_CPU/(1024*16));
+    3e4a:	20 e3       	ldi	r18, 0x30	; 48
+    3e4c:	3c ef       	ldi	r19, 0xFC	; 252
+    TIFR1 = _BV(TOV1);
+    3e4e:	91 e0       	ldi	r25, 0x01	; 1
+    TIFR = _BV(TOV1);
+    while (!(TIFR & _BV(TOV1)));
+#elif defined(__AVR_ATtiny43__)
+#error "LED flash for Tiny43 not yet supported"
+#else
+    TCNT1 = -(F_CPU/(1024*16));
+    3e50:	30 93 85 00 	sts	0x0085, r19	; 0x800085 <__RAM__+0x85>
+    3e54:	20 93 84 00 	sts	0x0084, r18	; 0x800084 <__RAM__+0x84>
+    TIFR1 = _BV(TOV1);
+    3e58:	96 bb       	out	0x16, r25	; 22
+    while (!(TIFR1 & _BV(TOV1)));
+    3e5a:	b0 9b       	sbis	0x16, 0	; 22
+    3e5c:	fe cf       	rjmp	.-4      	; 0x3e5a <main+0x56>
+  defined(__AVR_ATmega64__)   || defined(__AVR_ATmega128__)
+  LED_PORT ^= _BV(LED);
+#else
+  // Newer AVRs can toggle by writing PINx.
+  if (&LED_PIN <= &_SFR_IO8(0x31)) {  // "if" code optimizes away.
+    LED_PIN |= _BV(LED); // becomes SBI on low ports (in theory: incorrectly)
+    3e5e:	1d 9a       	sbi	0x03, 5	; 3
+}
+#endif
+
+// Watchdog functions. These are only safe with interrupts turned off.
+void watchdogReset() {
+  __asm__ __volatile__ (
+    3e60:	a8 95       	wdr
+     *  by the UART hardware, avrdude sends several attempts in rather
+     *  quick succession, some of which will be lost and cause us to
+     *  get out of sync.  So if we see any data; stop blinking.
+     */
+#ifndef LIN_UART
+    if (UART_SRA & _BV(RXC0))
+    3e62:	40 91 c0 00 	lds	r20, 0x00C0	; 0x8000c0 <__RAM__+0xc0>
+    3e66:	47 fd       	sbrc	r20, 7
+    3e68:	02 c0       	rjmp	.+4      	; 0x3e6e <main+0x6a>
+    3e6a:	81 50       	subi	r24, 0x01	; 1
+#else
+// This doesn't seem to work?
+//    if ((UART_PIN & (1<<UART_RX_BIT)) == 0)
+//      break;  // detect start bit on soft uart too.
+#endif
+  } while (--count);
+    3e6c:	89 f7       	brne	.-30     	; 0x3e50 <main+0x4c>
+
+      /*
+       * Copy data from the buffer into the flash write buffer.
+       */
+      do {
+        __boot_page_fill_short((uint16_t)(void*)addrPtr, *(mybuff.wptr++));
+    3e6e:	ee 24       	eor	r14, r14
+    3e70:	e3 94       	inc	r14
+       */
+      __boot_page_write_short(address.word);
+      boot_spm_busy_wait();
+#if defined(RWWSRE)
+      // Reenable read access to flash
+      __boot_rww_enable_short();
+    3e72:	91 e1       	ldi	r25, 0x11	; 17
+#endif
+
+  /* Forever loop: exits by causing WDT reset */
+  for (;;) {
+    /* get character from UART */
+    ch = getch();
+    3e74:	d9 2e       	mov	r13, r25
+
+    if (ch == STK_GET_PARAMETER) {
+    3e76:	7e d0       	rcall	.+252    	; 0x3f74 <getch>
+      unsigned char which = getch();
+    3e78:	81 34       	cpi	r24, 0x41	; 65
+    3e7a:	51 f4       	brne	.+20     	; 0x3e90 <main+0x8c>
+    3e7c:	7b d0       	rcall	.+246    	; 0x3f74 <getch>
+      verifySpace();
+    3e7e:	18 2f       	mov	r17, r24
+    3e80:	8b d0       	rcall	.+278    	; 0x3f98 <verifySpace>
+       * Send optiboot version as "SW version"
+       * Note that the references to memory are optimized away.
+       */
+      if (which == STK_SW_MINOR) {
+        putch(optiboot_version & 0xFF);
+      } else if (which == STK_SW_MAJOR) {
+    3e82:	11 38       	cpi	r17, 0x81	; 129
+      /*
+       * Send optiboot version as "SW version"
+       * Note that the references to memory are optimized away.
+       */
+      if (which == STK_SW_MINOR) {
+        putch(optiboot_version & 0xFF);
+    3e84:	11 f0       	breq	.+4      	; 0x3e8a <main+0x86>
+    3e86:	83 e0       	ldi	r24, 0x03	; 3
+      } else if (which == STK_SW_MAJOR) {
+        putch(optiboot_version >> 8);
+    3e88:	01 c0       	rjmp	.+2      	; 0x3e8c <main+0x88>
+    3e8a:	88 e0       	ldi	r24, 0x08	; 8
+    3e8c:	6c d0       	rcall	.+216    	; 0x3f66 <putch>
+    3e8e:	68 c0       	rjmp	.+208    	; 0x3f60 <main+0x15c>
+         * other parameters - enough to keep Avrdude happy
+         */
+        putch(0x03);
+      }
+    }
+    else if (ch == STK_SET_DEVICE) {
+    3e90:	82 34       	cpi	r24, 0x42	; 66
+      // SET DEVICE is ignored
+      getNch(20);
+    3e92:	11 f4       	brne	.+4      	; 0x3e98 <main+0x94>
+    3e94:	84 e1       	ldi	r24, 0x14	; 20
+    }
+    else if (ch == STK_SET_DEVICE_EXT) {
+    3e96:	03 c0       	rjmp	.+6      	; 0x3e9e <main+0x9a>
+      // SET DEVICE EXT is ignored
+      getNch(5);
+    3e98:	85 34       	cpi	r24, 0x45	; 69
+    3e9a:	19 f4       	brne	.+6      	; 0x3ea2 <main+0x9e>
+    3e9c:	85 e0       	ldi	r24, 0x05	; 5
+    }
+    else if (ch == STK_LOAD_ADDRESS) {
+    3e9e:	84 d0       	rcall	.+264    	; 0x3fa8 <getNch>
+    3ea0:	5f c0       	rjmp	.+190    	; 0x3f60 <main+0x15c>
+      // LOAD ADDRESS
+      address.bytes[0] = getch();
+    3ea2:	85 35       	cpi	r24, 0x55	; 85
+    3ea4:	39 f4       	brne	.+14     	; 0x3eb4 <main+0xb0>
+    3ea6:	66 d0       	rcall	.+204    	; 0x3f74 <getch>
+      address.bytes[1] = getch();
+    3ea8:	c8 2f       	mov	r28, r24
+    3eaa:	64 d0       	rcall	.+200    	; 0x3f74 <getch>
+      }
+      else {
+        RAMPZ &= 0xFE;
+      }
+#endif
+      address.word *= 2; // Convert from word address to byte address
+    3eac:	d8 2f       	mov	r29, r24
+    3eae:	cc 0f       	add	r28, r28
+    3eb0:	dd 1f       	adc	r29, r29
+      verifySpace();
+    }
+    else if (ch == STK_UNIVERSAL) {
+    3eb2:	55 c0       	rjmp	.+170    	; 0x3f5e <main+0x15a>
+        getNch(3);
+        putch(0x00);
+      }
+#else
+      // UNIVERSAL command is ignored
+      getNch(4);
+    3eb4:	86 35       	cpi	r24, 0x56	; 86
+    3eb6:	21 f4       	brne	.+8      	; 0x3ec0 <main+0xbc>
+      putch(0x00);
+    3eb8:	84 e0       	ldi	r24, 0x04	; 4
+    3eba:	76 d0       	rcall	.+236    	; 0x3fa8 <getNch>
+#endif
+    }
+    /* Write memory, length is big endian and is in bytes */
+    else if (ch == STK_PROG_PAGE) {
+    3ebc:	80 e0       	ldi	r24, 0x00	; 0
+    3ebe:	e6 cf       	rjmp	.-52     	; 0x3e8c <main+0x88>
+      // PROGRAM PAGE - we support flash programming only, not EEPROM
+      uint8_t desttype;
+      uint8_t *bufPtr;
+      pagelen_t savelength;
+
+      GETLENGTH(length);
+    3ec0:	84 36       	cpi	r24, 0x64	; 100
+    3ec2:	09 f0       	breq	.+2      	; 0x3ec6 <main+0xc2>
+    3ec4:	2f c0       	rjmp	.+94     	; 0x3f24 <main+0x120>
+    3ec6:	56 d0       	rcall	.+172    	; 0x3f74 <getch>
+      savelength = length;
+      desttype = getch();
+    3ec8:	55 d0       	rcall	.+170    	; 0x3f74 <getch>
+    3eca:	f8 2e       	mov	r15, r24
+    3ecc:	53 d0       	rcall	.+166    	; 0x3f74 <getch>
+    3ece:	c8 2e       	mov	r12, r24
+    3ed0:	00 e0       	ldi	r16, 0x00	; 0
+
+      // read a page worth of contents
+      bufPtr = buff.bptr;
+      do *bufPtr++ = getch();
+    3ed2:	11 e0       	ldi	r17, 0x01	; 1
+    3ed4:	4f d0       	rcall	.+158    	; 0x3f74 <getch>
+    3ed6:	f8 01       	movw	r30, r16
+    3ed8:	81 93       	st	Z+, r24
+    3eda:	8f 01       	movw	r16, r30
+      while (--length);
+    3edc:	fe 12       	cpse	r15, r30
+    3ede:	fa cf       	rjmp	.-12     	; 0x3ed4 <main+0xd0>
+
+      // Read command terminator, start reply
+      verifySpace();
+    3ee0:	5b d0       	rcall	.+182    	; 0x3f98 <verifySpace>
+    3ee2:	f5 e4       	ldi	r31, 0x45	; 69
+ * void writebuffer(memtype, buffer, address, length)
+ */
+static inline void writebuffer(int8_t memtype, addr16_t mybuff,
+                               addr16_t address, pagelen_t len)
+{
+  switch (memtype) {
+    3ee4:	cf 12       	cpse	r12, r31
+    3ee6:	01 c0       	rjmp	.+2      	; 0x3eea <main+0xe6>
+    3ee8:	ff cf       	rjmp	.-2      	; 0x3ee8 <main+0xe4>
+    3eea:	83 e0       	ldi	r24, 0x03	; 3
+       * and we needed the space back.
+       */
+#ifdef FOURPAGEERASE
+      if ((address.bytes[0] & ((SPM_PAGESIZE<<2)-1))==0) {
+#endif
+        __boot_page_erase_short(address.word);
+    3eec:	fe 01       	movw	r30, r28
+    3eee:	87 bf       	out	0x37, r24	; 55
+    3ef0:	e8 95       	spm
+    3ef2:	07 b6       	in	r0, 0x37	; 55
+        boot_spm_busy_wait();
+    3ef4:	00 fc       	sbrc	r0, 0
+    3ef6:	fd cf       	rjmp	.-6      	; 0x3ef2 <main+0xee>
+    3ef8:	a0 e0       	ldi	r26, 0x00	; 0
+    3efa:	b1 e0       	ldi	r27, 0x01	; 1
+    3efc:	fe 01       	movw	r30, r28
+    3efe:	8d 91       	ld	r24, X+
+
+      /*
+       * Copy data from the buffer into the flash write buffer.
+       */
+      do {
+        __boot_page_fill_short((uint16_t)(void*)addrPtr, *(mybuff.wptr++));
+    3f00:	9d 91       	ld	r25, X+
+    3f02:	0c 01       	movw	r0, r24
+    3f04:	e7 be       	out	0x37, r14	; 55
+    3f06:	e8 95       	spm
+    3f08:	11 24       	eor	r1, r1
+    3f0a:	32 96       	adiw	r30, 0x02	; 2
+        addrPtr += 2;
+      } while (len -= 2);
+    3f0c:	fa 12       	cpse	r15, r26
+
+      /*
+       * Actually Write the buffer to flash (and wait for it to finish.)
+       */
+      __boot_page_write_short(address.word);
+    3f0e:	f7 cf       	rjmp	.-18     	; 0x3efe <main+0xfa>
+    3f10:	85 e0       	ldi	r24, 0x05	; 5
+      boot_spm_busy_wait();
+    3f12:	fe 01       	movw	r30, r28
+    3f14:	87 bf       	out	0x37, r24	; 55
+#if defined(RWWSRE)
+      // Reenable read access to flash
+      __boot_rww_enable_short();
+    3f16:	e8 95       	spm
+    3f18:	07 b6       	in	r0, 0x37	; 55
+    3f1a:	00 fc       	sbrc	r0, 0
+      writebuffer(desttype, buff, address, savelength);
+
+
+    }
+/* Read memory block mode, length is big endian.  */
+    else if (ch == STK_READ_PAGE) {
+    3f1c:	fd cf       	rjmp	.-6      	; 0x3f18 <main+0x114>
+    3f1e:	d7 be       	out	0x37, r13	; 55
+      uint8_t desttype;
+      GETLENGTH(length);
+    3f20:	e8 95       	spm
+    3f22:	1e c0       	rjmp	.+60     	; 0x3f60 <main+0x15c>
+    3f24:	84 37       	cpi	r24, 0x74	; 116
+
+      desttype = getch();
+    3f26:	71 f4       	brne	.+28     	; 0x3f44 <main+0x140>
+
+      verifySpace();
+    3f28:	25 d0       	rcall	.+74     	; 0x3f74 <getch>
+    3f2a:	24 d0       	rcall	.+72     	; 0x3f74 <getch>
+    3f2c:	f8 2e       	mov	r15, r24
+      //      while (--length);
+      // read a Flash and increment the address (may increment RAMPZ)
+      __asm__ ("  elpm %0,Z+\n" : "=r" (ch), "=z" (address.bptr): "1" (address));
+#else
+      // read a Flash byte and increment the address
+      __asm__ ("  lpm %0,Z+\n" : "=r" (ch), "=z" (address.bptr): "1" (address));
+    3f2e:	22 d0       	rcall	.+68     	; 0x3f74 <getch>
+    3f30:	33 d0       	rcall	.+102    	; 0x3f98 <verifySpace>
+#endif
+      putch(ch);
+    3f32:	8e 01       	movw	r16, r28
+    } while (--length);
+    3f34:	f8 01       	movw	r30, r16
+    3f36:	85 91       	lpm	r24, Z+
+    3f38:	8f 01       	movw	r16, r30
+    3f3a:	15 d0       	rcall	.+42     	; 0x3f66 <putch>
+
+      read_mem(desttype, address, length);
+    }
+
+/* Get device signature bytes  */
+    else if (ch == STK_READ_SIGN) {
+    3f3c:	fa 94       	dec	r15
+    3f3e:	f1 10       	cpse	r15, r1
+      // READ SIGN - return what Avrdude wants to hear
+      verifySpace();
+    3f40:	f9 cf       	rjmp	.-14     	; 0x3f34 <main+0x130>
+    3f42:	0e c0       	rjmp	.+28     	; 0x3f60 <main+0x15c>
+      putch(SIGNATURE_0);
+    3f44:	85 37       	cpi	r24, 0x75	; 117
+    3f46:	39 f4       	brne	.+14     	; 0x3f56 <main+0x152>
+    3f48:	27 d0       	rcall	.+78     	; 0x3f98 <verifySpace>
+      putch(SIGNATURE_1);
+    3f4a:	8e e1       	ldi	r24, 0x1E	; 30
+    3f4c:	0c d0       	rcall	.+24     	; 0x3f66 <putch>
+    3f4e:	84 e9       	ldi	r24, 0x94	; 148
+      putch(SIGNATURE_2);
+    3f50:	0a d0       	rcall	.+20     	; 0x3f66 <putch>
+    3f52:	85 e0       	ldi	r24, 0x05	; 5
+    }
+    else if (ch == STK_LEAVE_PROGMODE) { /* 'Q' */
+    3f54:	9b cf       	rjmp	.-202    	; 0x3e8c <main+0x88>
+    3f56:	81 35       	cpi	r24, 0x51	; 81
+      // Adaboot no-wait mod
+      watchdogConfig(WATCHDOG_16MS);
+    3f58:	11 f4       	brne	.+4      	; 0x3f5e <main+0x15a>
+    3f5a:	88 e0       	ldi	r24, 0x08	; 8
+    3f5c:	17 d0       	rcall	.+46     	; 0x3f8c <watchdogConfig>
+      verifySpace();
+    }
+    else {
+      // This covers the response to commands like STK_ENTER_PROGMODE
+      verifySpace();
+    3f5e:	1c d0       	rcall	.+56     	; 0x3f98 <verifySpace>
+    3f60:	80 e1       	ldi	r24, 0x10	; 16
+    }
+    putch(STK_OK);
+    3f62:	01 d0       	rcall	.+2      	; 0x3f66 <putch>
+    3f64:	88 cf       	rjmp	.-240    	; 0x3e76 <main+0x72>
+
+00003f66 <putch>:
+    3f66:	90 91 c0 00 	lds	r25, 0x00C0	; 0x8000c0 <__RAM__+0xc0>
+  RS485_PORT |= _BV(RS485_BIT);
+# else
+  RS485_PORT &= ~_BV(RS485_BIT);
+# endif
+#else //not RS485
+  while (!(UART_SRA & _BV(UDRE0))) {  /* Spin */ }
+    3f6a:	95 ff       	sbrs	r25, 5
+    3f6c:	fc cf       	rjmp	.-8      	; 0x3f66 <putch>
+  UART_UDR = ch;
+    3f6e:	80 93 c6 00 	sts	0x00C6, r24	; 0x8000c6 <__RAM__+0xc6>
+    3f72:	08 95       	ret
+
+00003f74 <getch>:
+    :
+    "r25"
+    );
+#else
+#ifndef LIN_UART
+  while (!(UART_SRA & _BV(RXC0)))  {  /* Spin */ }
+    3f74:	80 91 c0 00 	lds	r24, 0x00C0	; 0x8000c0 <__RAM__+0xc0>
+    3f78:	87 ff       	sbrs	r24, 7
+    3f7a:	fc cf       	rjmp	.-8      	; 0x3f74 <getch>
+  if (!(UART_SRA & _BV(FE0))) {
+    3f7c:	80 91 c0 00 	lds	r24, 0x00C0	; 0x8000c0 <__RAM__+0xc0>
+    3f80:	84 fd       	sbrc	r24, 4
+    3f82:	01 c0       	rjmp	.+2      	; 0x3f86 <getch+0x12>
+}
+#endif
+
+// Watchdog functions. These are only safe with interrupts turned off.
+void watchdogReset() {
+  __asm__ __volatile__ (
+    3f84:	a8 95       	wdr
+  while (!(LINSIR & _BV(LRXOK)))  {  /* Spin */ }
+  if (!(LINSIR & _BV(LFERR))) {
+    watchdogReset();  /* Eventually abort if wrong speed */
+  }
+#endif
+  ch = UART_UDR;
+    3f86:	80 91 c6 00 	lds	r24, 0x00C6	; 0x8000c6 <__RAM__+0xc6>
+#if LED_DATA_FLASH
+  toggle_led();
+#endif
+
+  return ch;
+}
+    3f8a:	08 95       	ret
+
+00003f8c <watchdogConfig>:
+}
+
+void watchdogConfig(uint8_t x) {
+#ifdef WDCE //does it have a Watchdog Change Enable?
+#ifdef WDTCSR
+  WDTCSR = _BV(WDCE) | _BV(WDE);
+    3f8c:	e0 e6       	ldi	r30, 0x60	; 96
+    3f8e:	f0 e0       	ldi	r31, 0x00	; 0
+    3f90:	98 e1       	ldi	r25, 0x18	; 24
+    3f92:	90 83       	st	Z, r25
+#else //then it must be one of those newfangled ones that use CCP
+  CCP=0xD8; //so write this magic number to CCP
+#endif
+
+#ifdef WDTCSR
+  WDTCSR = x;
+    3f94:	80 83       	st	Z, r24
+    3f96:	08 95       	ret
+
+00003f98 <verifySpace>:
+  do getch(); while (--count);
+  verifySpace();
+}
+
+void verifySpace() {
+  if (getch() != CRC_EOP) {
+    3f98:	ed df       	rcall	.-38     	; 0x3f74 <getch>
+    3f9a:	80 32       	cpi	r24, 0x20	; 32
+    3f9c:	19 f0       	breq	.+6      	; 0x3fa4 <verifySpace+0xc>
+    watchdogConfig(WATCHDOG_16MS);    // shorten WD timeout
+    3f9e:	88 e0       	ldi	r24, 0x08	; 8
+    3fa0:	f5 df       	rcall	.-22     	; 0x3f8c <watchdogConfig>
+    3fa2:	ff cf       	rjmp	.-2      	; 0x3fa2 <verifySpace+0xa>
+    while (1)                         // and busy-loop so that WD causes
+      ;                               //  a reset and app start.
+  }
+  putch(STK_INSYNC);
+    3fa4:	84 e1       	ldi	r24, 0x14	; 20
+    3fa6:	df cf       	rjmp	.-66     	; 0x3f66 <putch>
+
+00003fa8 <getNch>:
+    ::[count] "M" (UART_B_VALUE)
+    );
+}
+#endif
+
+void getNch(uint8_t count) {
+    3fa8:	cf 93       	push	r28
+    3faa:	c8 2f       	mov	r28, r24
+  do getch(); while (--count);
+    3fac:	e3 df       	rcall	.-58     	; 0x3f74 <getch>
+    3fae:	c1 50       	subi	r28, 0x01	; 1
+    3fb0:	e9 f7       	brne	.-6      	; 0x3fac <getNch+0x4>
+  verifySpace();
+}
+    3fb2:	cf 91       	pop	r28
+}
+#endif
+
+void getNch(uint8_t count) {
+  do getch(); while (--count);
+  verifySpace();
+    3fb4:	f1 cf       	rjmp	.-30     	; 0x3f98 <verifySpace>
+
+00003fb6 <do_spm>:
+    3fb6:	fc 01       	movw	r30, r24
+ *   data=0 in WRITE
+ */
+static void do_spm(uint16_t address, uint8_t command, uint16_t data)  __attribute__ ((used));
+static void do_spm(uint16_t address, uint8_t command, uint16_t data) {
+  // Do spm stuff
+  asm volatile (
+    3fb8:	0a 01       	movw	r0, r20
+    3fba:	67 bf       	out	0x37, r22	; 55
+    3fbc:	e8 95       	spm
+    3fbe:	11 24       	eor	r1, r1
+    3fc0:	07 b6       	in	r0, 0x37	; 55
+    );
+
+  // wait for spm to complete
+  //   it doesn't have much sense for __BOOT_PAGE_FILL,
+  //   but it doesn't hurt and saves some bytes on 'if'
+  boot_spm_busy_wait();
+    3fc2:	00 fc       	sbrc	r0, 0
+    3fc4:	fd cf       	rjmp	.-6      	; 0x3fc0 <do_spm+0xa>
+    3fc6:	66 70       	andi	r22, 0x06	; 6
+#if defined(RWWSRE)
+  // this 'if' condition should be: (command == __BOOT_PAGE_WRITE || command == __BOOT_PAGE_ERASE)...
+  // but it's tweaked a little assuming that in every command we are interested in here, there
+  // must be also SELFPRGEN set. If we skip checking this bit, we save here 4B
+  if ((command & (_BV(PGWRT)|_BV(PGERS))) && (data == 0) ) {
+    3fc8:	29 f0       	breq	.+10     	; 0x3fd4 <do_spm+0x1e>
+    3fca:	45 2b       	or	r20, r21
+    3fcc:	19 f4       	brne	.+6      	; 0x3fd4 <do_spm+0x1e>
+    3fce:	81 e1       	ldi	r24, 0x11	; 17
+    // Reenable read access to flash
+    __boot_rww_enable_short();
+    3fd0:	87 bf       	out	0x37, r24	; 55
+    3fd2:	e8 95       	spm
+    3fd4:	08 95       	ret

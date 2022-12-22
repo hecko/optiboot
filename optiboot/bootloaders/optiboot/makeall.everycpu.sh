@@ -1,11 +1,13 @@
-#
+#!/bin/bash
 # Makefile to make one image for each chip that optiboot supports.
 # includes Arduino, Spence Konde ATtinyCore, Hans MCUDude cores, and
 # some others.
 # this is mainly used to sanity check modifications, especially those
 # that are expected to cause "no binary changes" (you can diff the
 # resulting .hex file with a reference implementation.)
-#
+
+set -e
+set -x
 
 make clean
 

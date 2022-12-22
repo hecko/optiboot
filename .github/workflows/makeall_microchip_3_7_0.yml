@@ -1,0 +1,41 @@
+name: "All Arduino Microchip 3.7.0"
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * *' # Daily at 5:00 UTC
+
+jobs:
+  build-latest:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:11
+    steps:
+    - name: Install Microchip version of GCC toolchain
+      run: |
+        apt-get update
+        apt-get install -y unzip wget git make
+        mkdir -p /opt/atpack
+        cd /opt
+        wget https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/avr8-gnu-toolchain-3.7.0.1796-linux.any.x86_64.tar.gz
+        tar xzfv avr8-gnu-toolchain-3.7.0.1796-linux.any.x86_64.tar.gz
+        cd /opt/atpack
+        wget http://packs.download.atmel.com/Atmel.ATmega_DFP.2.0.401.atpack
+        unzip Atmel.ATmega_DFP.2.0.401.atpack
+    - name: Checkout the repository
+      uses: actions/checkout@v3
+    - name: Make the target
+      run: |
+        cd optiboot/bootloaders/optiboot
+        export PATH="/opt/avr8-gnu-toolchain-linux_x86_64/bin/:$PATH"
+        chmod +x ./makeall.everycpu.sh
+        ./makeall.everycpu.sh
+        mkdir -p out/microchip_3_7_0
+        mv *.hex *.lst *.elf out/microchip_3_7_0
+    - name: Commit the artifacts
+      run: |
+        cd optiboot/bootloaders/optiboot/out/microchip_3_7_0
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "github-actions@github.com"
+        git add ./ -A
+        git commit -m "Comit generated files"
+        git push
