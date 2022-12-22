@@ -1,3 +1,4 @@
+// clang-format off
 #undef UART_PORT
 #undef UART_PIN
 #undef UART_DDR

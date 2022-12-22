@@ -1,3 +1,4 @@
+// clang-format off
 /*
  * baudcheck.c
  * Mar, 2013 by Bill Westfield (WestfW@yahoo.com)

@@ -1,3 +1,4 @@
+// clang-format off
 /*
  * pin_defs_x.h
  * optiboot helper defining the default pin assignments (LED, SOFT_UART)

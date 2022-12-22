@@ -1,3 +1,4 @@
+// clang-format off
 #ifdef __AVR_XMEGA__
 #define _mkPort(a) V##a
 #else

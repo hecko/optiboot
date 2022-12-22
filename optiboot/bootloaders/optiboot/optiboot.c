@@ -1,3 +1,4 @@
+// clang-format off
 #define FUNC_READ 1
 #define FUNC_WRITE 1
 /**********************************************************/

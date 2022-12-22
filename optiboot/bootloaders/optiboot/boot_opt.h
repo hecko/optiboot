@@ -1,3 +1,4 @@
+// clang-format off
 // Get all the "standard" definitions from the official boot.h
 #include <avr/boot.h>
 

@@ -701,6 +701,10 @@ clean:
 	@touch __temp_.bin __temp_.hex __temp_.tmp.sh
 	rm -rf *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex *.tmp.sh
 
+# format code to a consistent style
+format:
+	clang-format -style=file -i *.h *.c
+
 clean_asm:
 	rm -rf *.lst
 

@@ -1,3 +1,4 @@
+// clang-format off
 /**********************************************************/
 /* Optiboot bootloader for Mega0, Tiny0, Tiny1            */
 /*                                                        */
