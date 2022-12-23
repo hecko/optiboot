@@ -1,3 +1,5 @@
 BasedOnStyle: LLVM
 AlignConsecutiveMacros: true
 SpacesBeforeTrailingComments: 2
+IndentPPDirectives: AfterHash
+ColumnLimit: 140
