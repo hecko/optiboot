@@ -37,6 +37,7 @@ jobs:
         cd optiboot/bootloaders/optiboot/out/microchip_3_6_2
         git config --global user.name "GitHub Actions"
         git config --global user.email "github-actions@github.com"
+        git config --global --add safe.directory /__w/optiboot/optiboot
         git add ./ -A
         git commit -m "Comit generated files"
         git push
