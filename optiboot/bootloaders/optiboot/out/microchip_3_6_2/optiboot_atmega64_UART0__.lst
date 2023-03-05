@@ -762,7 +762,7 @@ static void do_spm(uint16_t address, uint8_t command, uint16_t data) {
     fe8b:	42 49 47 42 4f 4f 54 3d 31 00                       BIGBOOT=1.
 
 0000fe95 <f_date>:
-    fe95:	42 75 69 6c 74 3a 4d 61 72 20 20 34 20 32 30 32     Built:Mar  4 202
+    fe95:	42 75 69 6c 74 3a 4d 61 72 20 20 35 20 32 30 32     Built:Mar  5 202
     fea5:	33 3a 30 34 3a 30 33 3a 30 31 00                    3:04:03:01.
 
 0000feb0 <fUART>:
